@@ -48,8 +48,6 @@ public class Main {
 					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.type.rev221025.$YangModuleInfoImpl.getInstance(),
 					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.types.rev221025.$YangModuleInfoImpl.getInstance(),
 					org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.$YangModuleInfoImpl.getInstance()
-
-					,org.opendaylight.yang.gen.v1.urn.daniel.mydevice.norev.$YangModuleInfoImpl.getInstance()
 	);
 
 
@@ -110,10 +108,10 @@ public class Main {
 
 	public static void main(String[] args) {
 		System.out.println("Correct Payload:");
-		try1("service/src/main/resources/correct-payload.json");
+		try1("./src/main/resources/correct-payload.json");
 
 		System.out.println("Incorrect Payload:");
-		try1("service/src/main/resources/incorrect-payload.json");
+		try1("./src/main/resources/incorrect-payload.json");
 	}
 
 }

@@ -1,0 +1,19 @@
+module example {
+  namespace "urn:example";
+  prefix "ex";
+
+  container person {
+    list friends {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf age {
+        type int32;
+      }
+      leaf city {
+        type string;
+      }
+    }
+  }
+}

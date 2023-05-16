@@ -1,0 +1,16 @@
+{
+  "example:person": {
+    "friends": [
+      {
+        "name": "Alice",
+        "age": 25,
+        "city": "London"
+      },
+      {
+        "name": "Bob",
+        "age": 28,
+        "city": "Paris"
+      }
+    ]
+  }
+}
