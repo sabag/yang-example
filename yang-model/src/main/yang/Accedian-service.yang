@@ -1,0 +1,166 @@
+module Accedian-service {
+	yang-version 1.1;
+	namespace "http://accedian.com/ns/yang/service";
+	prefix acdserv;
+	
+	import Accedian-type {
+		prefix acdt;
+	}
+
+	import Accedian-session-type {
+		prefix acdst;
+	}
+	
+	import Accedian-session {
+		prefix acdses;
+	}
+	
+	import Accedian-service-endpoint-type {
+		prefix acdsept;
+	}
+	
+	import Accedian-service-type {
+		prefix acdservt;
+	}
+	
+	import Accedian-extensions {
+		prefix acdext;
+	}
+	
+	organization
+		"Accedian Networks Inc.";
+	contact
+		"Accedian Networks Inc.
+		
+		https://accedian.com/
+		Email: info@accedian.com
+		
+		2351 Blvd Alfred-Nobel, Suite N-410
+		Saint-Laurent (Montreal), Quebec,
+		H4S 2A9, Canada
+		
+		Phone: +1.514.331.6181 or +1.866.685.8181";
+	
+	description
+		"This module contains the definition of a service.
+		Service specific data is added through service type modules. Their
+		implementation is contained in modules following the
+		format: Accedian-service-<type>.yang. They augment
+		the service model when services:type match
+		
+		Copyright (c) Accedian Networks, Inc.
+		All rights reserved";
+	
+	revision 2022-10-25 {
+		description
+			"Initial revision ";
+	}
+	
+	notification state-change-event {
+		description
+			"A top level notification providing state change information on the service and it's
+			associated service sessions and service endpoints";
+		
+		leaf service-id {
+			description
+				"The service affected by this state change event. It correspond to
+				the service-id of one of the services configured";
+			type string;
+		}
+		
+		list session-state-change {
+			description
+				"Each node in this list corresponds to a state change of a service session status. This
+				service session is associated with it's parent service. This notification could be
+				generate from a state change from the service session itself or from one of its associated
+				service-endpoints";
+			key session-id;
+			
+			leaf session-id {
+				description
+					"The session identifier. This leaf corresponds to one of the session
+					identifier configured in the session list under this service-id.";
+				type string;
+			}
+			uses acdst:service-session-state-data;
+			
+			list service-endpoint-state-change {
+				description
+					"Each node in this list corresponds to a state change of a service endpoint status. This
+					service endpoint is associated with it's parent service and session";
+				key endpoint-id;
+				
+				leaf endpoint-id {
+					description
+						"Correspond to the identifier of the service endpoint configured under
+						this service service-id/session-id";
+					type string;
+				}
+				uses acdsept:service-endpoint-state-data;
+			}
+		}
+	}
+	
+	container services {
+		list service {
+			description
+				"List of all the services configured";
+			key service-id;
+			
+			leaf service-id {
+				type acdt:id;
+				acdext:tag-metadata service-id;
+				description
+					"Id uniquely identifying the service.
+					tag-metadata: This leaf will be included as part of the analytics
+					metadata as { service-id : <service-id> }";
+			}
+			
+			leaf service-name {
+				type string;
+				acdext:tag-metadata service-name;
+				description
+					"Name given to this service.
+					tag-metadata: This leaf will be included as part of the analytics
+					metadata as { service-name : <service-name> }";
+			}
+			
+			leaf description {
+				type string;
+				description
+					"Description of the service";
+			}
+			
+			leaf type {
+				type identityref {
+					base acdservt:service;
+				}
+				description
+					"The service deployment type";
+				reference
+					"supported types are specified in Accedian-service-type.yang";
+			}
+			
+			container service-definition {
+				description
+					"Service definition mount point. Service specific data is mounted here through
+					Yang augment ation";
+			}
+			
+			list sessions {
+				description
+					"The list of sessions involved in this service";
+				key session-id;
+				
+				leaf session-id {
+					description
+						"A reference pointing to a pre-existing session. The session is involved in this
+						service";
+					type leafref {
+						path "/acdses:sessions/acdses:session/acdses:session-id";
+					}
+				}
+			}
+		}
+	}
+}

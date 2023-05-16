@@ -1,0 +1,15 @@
+module mydevice {
+
+  namespace "urn:daniel:mydevice";
+  prefix "mymodel";
+
+  container interfaces {
+    list interface {
+      key name;
+      leaf name {
+        type string;
+      }
+    }
+  }
+
+}

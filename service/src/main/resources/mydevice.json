@@ -1,0 +1,10 @@
+{
+  "mydevice:interfaces":
+    {
+      "interface": [
+        { "name": "service01" },
+        { "name": "service02" },
+        { "name": "service03" }
+      ]
+    }
+}

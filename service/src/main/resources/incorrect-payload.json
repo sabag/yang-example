@@ -1,0 +1,30 @@
+{
+  "Accedian-service-endpoint:service-endpoint": {
+    "service-endpoint": [
+      {
+        "endpoint-id": "3aaaabbbccc2",
+        "description": "sender",
+        "type": "Accedian-service-endpoint-type:ne-endpoint",
+        "config": {
+          "Accedian-service-endpoint-ne:ne-config": {
+            "ne-id": "pe1",
+            "vlan-id": "123",
+            "ip": "192.168.20.1"
+          }
+        }
+      },
+      {
+        "endpoint-id": "8abababa",
+        "description": "reflector",
+        "type": "Accedian-service-endpoint-type:ne-endpoint",
+        "config": {
+          "Accedian-service-endpoint-ne:ne-config": {
+            "ne-id": "pe2",
+            "vlan-id": "123",
+            "ip": "192.168.20.2"
+          }
+        }
+      }
+    ]
+  }
+}
