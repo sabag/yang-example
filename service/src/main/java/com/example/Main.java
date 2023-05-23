@@ -1,117 +1,152 @@
 package com.example;
 
-import com.google.common.io.ByteSource;
 import com.google.gson.stream.JsonReader;
-import org.opendaylight.yangtools.yang.binding.YangModuleInfo;
+import org.opendaylight.mdsal.binding.dom.adapter.ConstantAdapterContext;
+import org.opendaylight.mdsal.binding.dom.codec.api.BindingNormalizedNodeSerializer;
+import org.opendaylight.mdsal.binding.dom.codec.impl.BindingCodecContext;
+import org.opendaylight.mdsal.binding.generator.impl.DefaultBindingRuntimeGenerator;
+import org.opendaylight.mdsal.binding.runtime.api.BindingRuntimeGenerator;
+import org.opendaylight.mdsal.binding.runtime.api.BindingRuntimeTypes;
+import org.opendaylight.mdsal.binding.runtime.api.DefaultBindingRuntimeContext;
+import org.opendaylight.mdsal.binding.runtime.spi.ModuleInfoSnapshotBuilder;
+import org.opendaylight.yangtools.yang.binding.DataObject;
+import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.common.QName;
 import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
-import org.opendaylight.yangtools.yang.data.api.schema.ContainerNode;
 import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNode;
-import org.opendaylight.yangtools.yang.data.api.schema.builder.DataContainerNodeBuilder;
-import org.opendaylight.yangtools.yang.data.api.schema.stream.NormalizedNodeStreamWriter;
+import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNodes;
+import org.opendaylight.yangtools.yang.data.api.schema.SystemMapNode;
 import org.opendaylight.yangtools.yang.data.codec.gson.JSONCodecFactory;
 import org.opendaylight.yangtools.yang.data.codec.gson.JSONCodecFactorySupplier;
 import org.opendaylight.yangtools.yang.data.codec.gson.JsonParserStream;
-import org.opendaylight.yangtools.yang.data.impl.schema.Builders;
 import org.opendaylight.yangtools.yang.data.impl.schema.ImmutableNormalizedNodeStreamWriter;
+import org.opendaylight.yangtools.yang.data.impl.schema.NormalizedNodeResult;
 import org.opendaylight.yangtools.yang.model.api.EffectiveModelContext;
-import org.opendaylight.yangtools.yang.model.api.SchemaContext;
-import org.opendaylight.yangtools.yang.model.repo.api.SourceIdentifier;
 import org.opendaylight.yangtools.yang.model.repo.api.YangTextSchemaSource;
 import org.opendaylight.yangtools.yang.model.util.SchemaInferenceStack;
-import org.opendaylight.yangtools.yang.parser.api.YangSyntaxErrorException;
-import org.opendaylight.yangtools.yang.parser.rfc7950.reactor.RFC7950Reactors;
-import org.opendaylight.yangtools.yang.parser.rfc7950.repo.YangStatementStreamSource;
-import org.opendaylight.yangtools.yang.parser.stmt.reactor.CrossSourceStatementReactor;
+import org.opendaylight.yangtools.yang.parser.api.YangParser;
+import org.opendaylight.yangtools.yang.parser.impl.DefaultYangParserFactory;
 
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Reader;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.logging.Logger;
+import java.io.File;
+import java.io.StringReader;
+import java.util.Map;
+import java.util.Optional;
 
 public class Main {
 
 
-	public static final Set<YangModuleInfo> ACCEDIAN_MODELS = Set.of(
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.extensions.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.ne.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.type.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.l3vpn.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.type.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.twamp.light.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.type.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.types.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.$YangModuleInfoImpl.getInstance()
-	);
+//	public static final Set<YangModuleInfo> ACCEDIAN_MODELS = Set.of(
+//		org.opendaylight.yang.gen.v1.urn.example2.norev.$YangModuleInfoImpl.getInstance()
+//	);
 
 
-	private static List<YangStatementStreamSource> getYangStatementsFromYangModulesInfo(final Set<YangModuleInfo> yangModulesInfo)
-					throws YangSyntaxErrorException, IOException {
+	public static void main(String[] args) {
 
-		final ArrayList<YangStatementStreamSource> sourceArrayList = new ArrayList<>();
-		for (YangModuleInfo yangModuleInfo : yangModulesInfo) {
-			ByteSource byteSource = yangModuleInfo.getYangTextByteSource();
-			SourceIdentifier sourceIdentifier = YangTextSchemaSource.identifierFromFilename(yangModuleInfo.getName().getLocalName() + ".yang");
-			YangTextSchemaSource yangTextSchemaSource = YangTextSchemaSource.delegateForByteSource(sourceIdentifier,byteSource);
-			YangStatementStreamSource statementSource = YangStatementStreamSource.create(yangTextSchemaSource);
-			sourceArrayList.add(statementSource);
-		}
-		return sourceArrayList;
+		try4();
+
 	}
 
+	private static void try4() {
 
-	public static void try1(String payloadFile){
+		String yangDirectory = "/Users/dsabag/dev/yang-example/yang-model/src/main/yang/";
+
 		try {
+			File[] fileArray = new File(yangDirectory).listFiles((dir,name) -> name.endsWith(".yang"));
 
-			Set<YangModuleInfo> mavenModelPaths = new HashSet<>(ACCEDIAN_MODELS);
-			CrossSourceStatementReactor.BuildAction buildAction = RFC7950Reactors.defaultReactorBuilder().build().newBuild();
+			YangParser parser = new DefaultYangParserFactory().createParser();
+			for(File file : fileArray) {
+				YangTextSchemaSource source = YangTextSchemaSource.forPath(file.toPath());
+				parser.addSource(source);
+			}
+			EffectiveModelContext context = parser.buildEffectiveModel();
+			JSONCodecFactory lhotkaCodecFactory = JSONCodecFactorySupplier.DRAFT_LHOTKA_NETMOD_YANG_JSON_02.getShared(context);
 
-			buildAction.addSources(getYangStatementsFromYangModulesInfo(mavenModelPaths));
-			EffectiveModelContext effectiveModelContext = buildAction.buildEffective();
+			final QName CONT = QName.create("urn:example2", "service-endpoints");
+
+			final var result = new NormalizedNodeResult();
+			final var streamWriter = ImmutableNormalizedNodeStreamWriter.from(result);
+			final var jsonParser = JsonParserStream.create(
+							streamWriter,
+//							JSONCodecFactorySupplier.RFC7951.getShared(context),
+							lhotkaCodecFactory,
+							SchemaInferenceStack.Inference.ofDataTreePath(context, CONT)
+
+			);
+			jsonParser.parse(new JsonReader(new StringReader("""
+			{
+			  "Accedian-service-endpoint:service-endpoint": [
+				{
+				  "endpoint-id": "5bcbb985-ca2d-4d0b-ba0e-2617c5bfa70c",
+				  "endpoint-name": "Site-A",
+				  "description": "Session sender",
+				  "type": "Accedian-service-endpoint-type:ne-endpoint"
+				},
+				{
+				  "endpoint-id": "92efc5f8-d441-4fe5-a1af-13b0d4422895",
+				  "endpoint-name": "Site-B",
+				  "description": "Session reflector",
+				  "type": "Accedian-service-endpoint-type:ne-endpoint"
+				}
+			  ]
+			}
+            """)));
+			final var node = result.getResult();
+			System.out.println("node = " + node);
+
+			//
+			// example of extract data from node (dom based)
+			//
+			if(node instanceof SystemMapNode mapNode){
+				mapNode.body().forEach(inode -> {
+					Optional<NormalizedNode> optional = NormalizedNodes.getDirectChild(inode,
+									YangInstanceIdentifier.NodeIdentifier.create(QName.create(CONT, "endpoint-name")));
+					optional.ifPresent(normalizedNode -> System.out.println(normalizedNode.body()));
+				});
+			}
+
+			//
+			// convert the node to generated object
+			//
+
+			// one way to create ModuleInfoSnapshotBuilder
+//			final YangXPathParserFactory xpathFactory = new AntlrXPathParserFactory();
+//			DefaultYangParserFactory yangParserFactory = new DefaultYangParserFactory(xpathFactory);
+//			final ModuleInfoSnapshotBuilder moduleInfoSnapshotBuilder = new ModuleInfoSnapshotBuilder(yangParserFactory);
+//			moduleInfoSnapshotBuilder.add(org.opendaylight.yang.gen.v1.urn.example2.norev.$YangModuleInfoImpl.getInstance());
+
+			// another simpler way
+			final ModuleInfoSnapshotBuilder moduleInfoSnapshotBuilder = new ModuleInfoSnapshotBuilder(new DefaultYangParserFactory());
 
 
-			FileReader inputData = new FileReader(payloadFile);
-			NormalizedNode deserializedNode = deserialize(effectiveModelContext, inputData);
-			System.out.println("deserializedNode = " + deserializedNode);
+			final BindingRuntimeGenerator bindingRuntimeGenerator = new DefaultBindingRuntimeGenerator();
+			final BindingRuntimeTypes bindingRuntimeTypes = bindingRuntimeGenerator.generateTypeMapping(context);
+			DefaultBindingRuntimeContext bindingRuntimeContext = new DefaultBindingRuntimeContext(bindingRuntimeTypes, moduleInfoSnapshotBuilder.build());
+			BindingCodecContext bindingCodecContext = new BindingCodecContext(bindingRuntimeContext);
+			ConstantAdapterContext codec = new ConstantAdapterContext(bindingCodecContext);
+			BindingNormalizedNodeSerializer serializer = codec.currentSerializer();
+
+			YangInstanceIdentifier yii = YangInstanceIdentifier.builder()
+							.node(QName.create(CONT, "service-endpoint"))
+							.build();
+
+			Map.Entry<InstanceIdentifier<?>, DataObject> entry = serializer.fromNormalizedNode(YangInstanceIdentifier.of(CONT), node);
+			System.out.println("entry = " + entry);
+
+/* trying to iterate the node (which is a map)
+			if(node instanceof SystemMapNode mapNode) {
+				mapNode.body().forEach(inode -> {
+					Map.Entry<InstanceIdentifier<?>, DataObject> map =
+									codec.fromNormalizedNode(yii, inode);
+					System.out.println("map = " + map);
+				});
+			}
+*/
 
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-	}
 
 
-	public static NormalizedNode deserialize(EffectiveModelContext effectiveModelContext, Reader inputData) throws IOException {
-
-		JSONCodecFactory jsonCodecFactory = JSONCodecFactorySupplier.DRAFT_LHOTKA_NETMOD_YANG_JSON_02.createLazy(effectiveModelContext);
-		SchemaInferenceStack.Inference inference = SchemaInferenceStack.of(jsonCodecFactory.getEffectiveModelContext()).toInference();
-
-		final DataContainerNodeBuilder<YangInstanceIdentifier.NodeIdentifier, ContainerNode> resultBuilder = Builders.containerBuilder()
-						.withNodeIdentifier(YangInstanceIdentifier.NodeIdentifier.create(SchemaContext.NAME));
-		NormalizedNodeStreamWriter writer = ImmutableNormalizedNodeStreamWriter.from(resultBuilder);
-
-		try (JsonReader reader = new JsonReader(inputData);
-						JsonParserStream jsonParser = JsonParserStream.create(writer, jsonCodecFactory, inference)) {
-			jsonParser.parse(reader);
-		}
-
-		return resultBuilder.build();
-	}
-
-
-
-
-	public static void main(String[] args) {
-		System.out.println("Correct Payload:");
-		try1("./src/main/resources/correct-payload.json");
-
-		System.out.println("Incorrect Payload:");
-		try1("./src/main/resources/incorrect-payload.json");
 	}
 
 }

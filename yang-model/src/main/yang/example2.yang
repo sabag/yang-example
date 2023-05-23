@@ -1,0 +1,22 @@
+module Accedian-service-endpoint {
+	namespace "urn:example2";
+	prefix ex2;
+
+	container service-endpoints {
+		list service-endpoint {
+			key endpoint-id;
+			leaf endpoint-id {
+				type string;
+			}
+			leaf endpoint-name {
+				type string;
+			}
+			leaf description {
+				type string;
+			}
+			leaf type {
+				type string;
+			}
+		}
+	}
+}
