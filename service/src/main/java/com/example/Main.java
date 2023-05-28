@@ -112,14 +112,14 @@ public class Main {
 			// wrap the Map of ServiceEndpoint inside a ContainerNode
 			//
 			ContainerNode containerNode = ImmutableContainerNodeBuilder.create()
-							.withNodeIdentifier(YangInstanceIdentifier.NodeIdentifier.create(ServiceEndpoints.QNAME))
-							.withChild(
-											Builders.mapBuilder()
-															.withNodeIdentifier(YangInstanceIdentifier.NodeIdentifier.create(ServiceEndpoint.QNAME))
-															.withValue((Collection<MapEntryNode>) node.body())
-															.build()
-							)
-							.build();
+				.withNodeIdentifier(YangInstanceIdentifier.NodeIdentifier.create(ServiceEndpoints.QNAME))
+				.withChild(
+					Builders.mapBuilder()
+						.withNodeIdentifier(YangInstanceIdentifier.NodeIdentifier.create(ServiceEndpoint.QNAME))
+						.withValue((Collection<MapEntryNode>) node.body())
+						.build()
+				)
+				.build();
 
 			System.out.println(containerNode.prettyTree());
 
