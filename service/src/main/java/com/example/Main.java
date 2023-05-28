@@ -12,8 +12,10 @@ import org.opendaylight.yangtools.yang.common.QName;
 import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
 import org.opendaylight.yangtools.yang.data.api.schema.ContainerNode;
 import org.opendaylight.yangtools.yang.data.api.schema.MapEntryNode;
-import org.opendaylight.yangtools.yang.data.codec.gson.JSONCodecFactorySupplier;
-import org.opendaylight.yangtools.yang.data.codec.gson.JsonParserStream;
+import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNode;
+import org.opendaylight.yangtools.yang.data.api.schema.stream.NormalizedNodeStreamWriter;
+import org.opendaylight.yangtools.yang.data.api.schema.stream.NormalizedNodeWriter;
+import org.opendaylight.yangtools.yang.data.codec.gson.*;
 import org.opendaylight.yangtools.yang.data.impl.schema.Builders;
 import org.opendaylight.yangtools.yang.data.impl.schema.ImmutableNormalizedNodeStreamWriter;
 import org.opendaylight.yangtools.yang.data.impl.schema.NormalizedNodeResult;
@@ -24,8 +26,7 @@ import org.opendaylight.yangtools.yang.model.util.SchemaInferenceStack;
 import org.opendaylight.yangtools.yang.parser.api.YangParser;
 import org.opendaylight.yangtools.yang.parser.impl.DefaultYangParserFactory;
 
-import java.io.File;
-import java.io.StringReader;
+import java.io.*;
 import java.util.Collection;
 import java.util.Map;
 
@@ -67,6 +68,10 @@ public class Main {
 			}
 			EffectiveModelContext context = parser.buildEffectiveModel();
 
+			// build codec factory from context
+			JSONCodecFactory codecFactory = JSONCodecFactorySupplier.DRAFT_LHOTKA_NETMOD_YANG_JSON_02.getShared(context);
+			//							JSONCodecFactorySupplier.RFC7951.getShared(context),
+
 			//
 			// build a JsonParser object to be used for the payload
 			//
@@ -76,8 +81,7 @@ public class Main {
 			final var streamWriter = ImmutableNormalizedNodeStreamWriter.from(result);
 			final var jsonParser = JsonParserStream.create(
 							streamWriter,
-//							JSONCodecFactorySupplier.RFC7951.getShared(context),
-							JSONCodecFactorySupplier.DRAFT_LHOTKA_NETMOD_YANG_JSON_02.getShared(context),
+							codecFactory,
 							SchemaInferenceStack.Inference.ofDataTreePath(context, CONT)
 			);
 
@@ -147,6 +151,13 @@ public class Main {
 			final ServiceEndpoints value = (ServiceEndpoints) fromNormalizedNode.getValue();
 			System.out.println("endpoints = " + value);
 
+			//
+			// now, convert back from "yang generated object" to json
+			//
+			System.out.println("--------------------------------------------");
+			InstanceIdentifier<ServiceEndpoints> iise = InstanceIdentifier.create(ServiceEndpoints.class);
+			Map.Entry<YangInstanceIdentifier, NormalizedNode> nodeEntry = bindingCodecContext.toNormalizedNode(iise,value);
+			System.out.println(toJSON(codecFactory, nodeEntry.getValue()));
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -154,5 +165,18 @@ public class Main {
 
 
 	}
+
+
+	private static String toJSON(JSONCodecFactory codecFactory, final NormalizedNode input) throws IOException {
+		final Writer writer = new StringWriter();
+		final NormalizedNodeStreamWriter jsonStream = JSONNormalizedNodeStreamWriter.createExclusiveWriter(
+						codecFactory, JsonWriterFactory.createJsonWriter(writer, 2));
+		try (NormalizedNodeWriter nodeWriter = NormalizedNodeWriter.forStreamWriter(jsonStream)) {
+			nodeWriter.write(input);
+		}
+
+		return writer.toString();
+	}
+
 
 }
