@@ -92,13 +92,13 @@ public class Main {
 			{
 			  "Accedian-service-endpoint:service-endpoint": [
 				{
-				  "endpoint-id": "5bcbb985-ca2d-4d0b-ba0e-2617c5bfa70c",
+				  "endpoint-id": "5bcbb985-siteA",
 				  "endpoint-name": "Site-A",
 				  "description": "Session sender",
 				  "type": "Accedian-service-endpoint-type:ne-endpoint"
 				},
 				{
-				  "endpoint-id": "92efc5f8-d441-4fe5-a1af-13b0d4422895",
+				  "endpoint-id": "92efc5f8-siteB",
 				  "endpoint-name": "Site-B",
 				  "description": "Session reflector",
 				  "type": "Accedian-service-endpoint-type:ne-endpoint"
