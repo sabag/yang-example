@@ -2,6 +2,11 @@ module Accedian-service-endpoint {
 	namespace "urn:example2";
 	prefix ex2;
 
+	revision 2022-10-25 {
+		description
+			"Initial revision";
+	}
+
 	container service-endpoints {
 		list service-endpoint {
 			key endpoint-id;

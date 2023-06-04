@@ -4,8 +4,7 @@ import com.google.gson.stream.JsonReader;
 import org.opendaylight.mdsal.binding.dom.codec.impl.BindingCodecContext;
 import org.opendaylight.mdsal.binding.runtime.api.BindingRuntimeContext;
 import org.opendaylight.mdsal.binding.runtime.spi.BindingRuntimeHelpers;
-import org.opendaylight.yang.gen.v1.urn.example2.norev.ServiceEndpoints;
-import org.opendaylight.yang.gen.v1.urn.example2.norev.service.endpoints.ServiceEndpoint;
+import org.opendaylight.yang.gen.v1.urn.example2.rev221025.ServiceEndpoints;
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.QName;
@@ -15,11 +14,16 @@ import org.opendaylight.yangtools.yang.data.api.schema.MapEntryNode;
 import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNode;
 import org.opendaylight.yangtools.yang.data.api.schema.stream.NormalizedNodeStreamWriter;
 import org.opendaylight.yangtools.yang.data.api.schema.stream.NormalizedNodeWriter;
+import org.opendaylight.yangtools.yang.data.api.schema.tree.StoreTreeNodes;
 import org.opendaylight.yangtools.yang.data.codec.gson.*;
 import org.opendaylight.yangtools.yang.data.impl.schema.Builders;
 import org.opendaylight.yangtools.yang.data.impl.schema.ImmutableNormalizedNodeStreamWriter;
 import org.opendaylight.yangtools.yang.data.impl.schema.NormalizedNodeResult;
 import org.opendaylight.yangtools.yang.data.impl.schema.builder.impl.ImmutableContainerNodeBuilder;
+import org.opendaylight.yangtools.yang.data.tree.api.*;
+import org.opendaylight.yangtools.yang.data.tree.impl.di.InMemoryDataTreeFactory;
+import org.opendaylight.yangtools.yang.data.tree.impl.node.TreeNode;
+import org.opendaylight.yangtools.yang.data.tree.impl.node.Version;
 import org.opendaylight.yangtools.yang.model.api.EffectiveModelContext;
 import org.opendaylight.yangtools.yang.model.repo.api.YangTextSchemaSource;
 import org.opendaylight.yangtools.yang.model.util.SchemaInferenceStack;
@@ -29,8 +33,12 @@ import org.opendaylight.yangtools.yang.parser.impl.DefaultYangParserFactory;
 import java.io.*;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 
 public class Main {
+
+	static final QName QNAME_SE = QName.create("urn:example2", "2022-10-25", "service-endpoints");
+	static final QName QNAME_SE_LIST = QName.create(QNAME_SE, "service-endpoint");
 
 
 	public static void main(String[] args) {
@@ -68,6 +76,7 @@ public class Main {
 			}
 			EffectiveModelContext context = parser.buildEffectiveModel();
 
+
 			// build codec factory from context
 			JSONCodecFactory codecFactory = JSONCodecFactorySupplier.DRAFT_LHOTKA_NETMOD_YANG_JSON_02.getShared(context);
 			//							JSONCodecFactorySupplier.RFC7951.getShared(context),
@@ -75,14 +84,13 @@ public class Main {
 			//
 			// build a JsonParser object to be used for the payload
 			//
-			final QName CONT = QName.create("urn:example2", "service-endpoints");
 
 			final var result = new NormalizedNodeResult();
 			final var streamWriter = ImmutableNormalizedNodeStreamWriter.from(result);
 			final var jsonParser = JsonParserStream.create(
 							streamWriter,
 							codecFactory,
-							SchemaInferenceStack.Inference.ofDataTreePath(context, CONT)
+							SchemaInferenceStack.Inference.ofDataTreePath(context, QNAME_SE)
 			);
 
 			//
@@ -112,16 +120,72 @@ public class Main {
 			// wrap the Map of ServiceEndpoint inside a ContainerNode
 			//
 			ContainerNode containerNode = ImmutableContainerNodeBuilder.create()
-				.withNodeIdentifier(YangInstanceIdentifier.NodeIdentifier.create(ServiceEndpoints.QNAME))
+				.withNodeIdentifier(YangInstanceIdentifier.NodeIdentifier.create(QNAME_SE))
 				.withChild(
 					Builders.mapBuilder()
-						.withNodeIdentifier(YangInstanceIdentifier.NodeIdentifier.create(ServiceEndpoint.QNAME))
+						.withNodeIdentifier(YangInstanceIdentifier.NodeIdentifier.create(QNAME_SE_LIST))
 						.withValue((Collection<MapEntryNode>) node.body())
 						.build()
 				)
 				.build();
 
 			System.out.println(containerNode.prettyTree());
+			System.out.println("--------------------------------------------");
+
+
+			//
+			// create data tree
+			//
+			DataTree dataTree = new InMemoryDataTreeFactory().create(DataTreeConfiguration.DEFAULT_CONFIGURATION, context);
+			dataTree.setEffectiveModelContext(context);
+
+
+			//
+			// save node to data tree
+			//
+			DataTreeSnapshot snapshot = dataTree.takeSnapshot();
+			final DataTreeModification change1 = snapshot.newModification();
+			change1.merge(YangInstanceIdentifier.of(QNAME_SE), containerNode);
+			change1.ready();
+			dataTree.validate(change1);
+			final DataTreeCandidate prepare = dataTree.prepare(change1);
+			dataTree.commit(prepare);
+
+
+			snapshot = dataTree.takeSnapshot();
+
+			//
+			// readNode() using snapshot
+			//
+			YangInstanceIdentifier SINGLE_SE_BY_ID = YangInstanceIdentifier
+							.builder(YangInstanceIdentifier.of(QNAME_SE))
+							.node(QNAME_SE_LIST)
+							.nodeWithKey(QNAME_SE_LIST, QName.create(QNAME_SE, "endpoint-id"), "92efc5f8-siteB")
+							.build();
+
+			Optional<NormalizedNode> optNode = snapshot.readNode(SINGLE_SE_BY_ID);
+			System.out.println("Find By ID:");
+			System.out.println(optNode.get().prettyTree());
+			// FIXME: toJSON() fails
+			System.out.println( toJSON(codecFactory, optNode.get()) );
+			System.out.println("--------------------------------------------");
+
+
+			//
+			// findNode() using TreeNode
+			//
+			TreeNode treeNode = TreeNode.of(containerNode, Version.initial());
+			// NOTE: when working with tree node find(), you need to remove the top container from the YangInstanceIdentifier
+			YangInstanceIdentifier SE_BY_ID = YangInstanceIdentifier
+							.builder(YangInstanceIdentifier.of(QNAME_SE_LIST))
+							.nodeWithKey(QNAME_SE_LIST, QName.create(QNAME_SE, "endpoint-id"), "92efc5f8-siteB")
+							.build();
+
+			Optional<? extends TreeNode> node1 = StoreTreeNodes.findNode(treeNode, SE_BY_ID);
+			System.out.println(toJSON(codecFactory, node1.get().getData()));
+			System.out.println("--------------------------------------------");
+
+
 
 
 			//
@@ -169,7 +233,7 @@ public class Main {
 
 	private static String toJSON(JSONCodecFactory codecFactory, final NormalizedNode input) throws IOException {
 		final Writer writer = new StringWriter();
-		final NormalizedNodeStreamWriter jsonStream = JSONNormalizedNodeStreamWriter.createExclusiveWriter(
+		final NormalizedNodeStreamWriter jsonStream = JSONNormalizedNodeStreamWriter.createNestedWriter(
 						codecFactory, JsonWriterFactory.createJsonWriter(writer, 2));
 		try (NormalizedNodeWriter nodeWriter = NormalizedNodeWriter.forStreamWriter(jsonStream)) {
 			nodeWriter.write(input);
