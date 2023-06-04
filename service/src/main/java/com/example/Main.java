@@ -132,15 +132,17 @@ public class Main {
 				)
 				.build();
 
+			System.out.println("\n---------- wrapped with container ----------------------------------");
 			System.out.println(containerNode.prettyTree());
-			System.out.println("--------------------------------------------");
+			System.out.println(serializeData(codecFactory,
+							SchemaInferenceStack.of(context).toInference(),
+							containerNode));
 
 
 			//
 			// create data tree
 			//
 			DataTree dataTree = new InMemoryDataTreeFactory().create(DataTreeConfiguration.DEFAULT_CONFIGURATION, context);
-			dataTree.setEffectiveModelContext(context);
 
 
 			//
@@ -158,7 +160,7 @@ public class Main {
 			snapshot = dataTree.takeSnapshot();
 
 			//
-			// readNode() using snapshot
+			// find node using readNode() from snapshot
 			//
 			YangInstanceIdentifier SINGLE_SE_BY_ID = YangInstanceIdentifier
 							.builder(YangInstanceIdentifier.of(QNAME_SE))
@@ -167,15 +169,15 @@ public class Main {
 							.build();
 
 			Optional<NormalizedNode> optNode = snapshot.readNode(SINGLE_SE_BY_ID);
+			System.out.println("\n----------- snapshot.readNode() ---------------------------------");
 			System.out.println("Find By ID:");
 			System.out.println(optNode.get().prettyTree());
 			SchemaInferenceStack.Inference inference =
 							SchemaInferenceStack.of(context,SchemaNodeIdentifier.Absolute.of(QNAME_SE,QNAME_SE_LIST)).toInference();
-			System.out.println( toJSON(codecFactory, inference, optNode.get()) );
-			System.out.println("--------------------------------------------");
+			System.out.println( serializeData(codecFactory, inference, optNode.get()) );
 
 			//
-			// findNode() using TreeNode
+			// find node using StoreTreeNodes.findNode() with TreeNode
 			//
 			TreeNode treeNode = TreeNode.of(containerNode, Version.initial());
 			// NOTE: when working with tree node find(), you need to remove the top container from the YangInstanceIdentifier
@@ -185,10 +187,19 @@ public class Main {
 							.build();
 
 			Optional<? extends TreeNode> node1 = StoreTreeNodes.findNode(treeNode, SE_BY_ID);
-			System.out.println(toJSON(codecFactory, inference, node1.get().getData()));
-			System.out.println("--------------------------------------------");
+			System.out.println("\n--------- StoreTreeNodes.findNode() -----------------------------------");
+			System.out.println(serializeData(codecFactory, inference, node1.get().getData()));
 
 
+			//
+			// get all endpoints from snapshot
+			//
+			YangInstanceIdentifier yangIdAllList = YangInstanceIdentifier
+							.builder(YangInstanceIdentifier.of(QNAME_SE))
+							.build();
+			Optional<NormalizedNode> node2 = snapshot.readNode(yangIdAllList);
+			System.out.println("all list: \n" + node2.get().prettyTree());
+			System.out.println("json: \n" + serializeData(codecFactory, SchemaInferenceStack.of(context).toInference(), node2.get()));
 
 
 			//
@@ -216,12 +227,13 @@ public class Main {
 			final YangInstanceIdentifier seYII = YangInstanceIdentifier.builder().node(ServiceEndpoints.QNAME).build();
 			final Map.Entry<InstanceIdentifier<?>, DataObject> fromNormalizedNode = bindingCodecContext.fromNormalizedNode(seYII, containerNode);
 			final ServiceEndpoints value = (ServiceEndpoints) fromNormalizedNode.getValue();
+			System.out.println("\n--------- NormalizedNode to Generated object -----------------------------------");
 			System.out.println("endpoints = " + value);
 
 			//
 			// now, convert back from "yang generated object" to json
 			//
-//			System.out.println("--------------------------------------------");
+//			System.out.println("\n--------------------------------------------");
 //			InstanceIdentifier<ServiceEndpoints> iise = InstanceIdentifier.create(ServiceEndpoints.class);
 //			Map.Entry<YangInstanceIdentifier, NormalizedNode> nodeEntry = bindingCodecContext.toNormalizedNode(iise,value);
 //			System.out.println(toJSON(codecFactory, nodeEntry.getValue()));
@@ -234,11 +246,10 @@ public class Main {
 	}
 
 
-	private static String toJSON(JSONCodecFactory codecFactory, final SchemaInferenceStack.Inference inference, final NormalizedNode node) throws IOException {
+	private static String toJSON(JSONCodecFactory codecFactory, final NormalizedNode node) throws IOException {
 		final Writer writer = new StringWriter();
-		final XMLNamespace initialNamespace = node.getIdentifier().getNodeType().getNamespace();
 		final NormalizedNodeStreamWriter jsonStream = JSONNormalizedNodeStreamWriter.createNestedWriter(
-						codecFactory, inference, initialNamespace, JsonWriterFactory.createJsonWriter(writer, 2));
+						codecFactory, JsonWriterFactory.createJsonWriter(writer, 2));
 		try (NormalizedNodeWriter nodeWriter = NormalizedNodeWriter.forStreamWriter(jsonStream)) {
 			nodeWriter.write(node);
 		}
