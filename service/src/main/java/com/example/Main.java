@@ -1,6 +1,7 @@
 package com.example;
 
 import com.google.gson.stream.JsonReader;
+import com.google.gson.stream.JsonWriter;
 import org.opendaylight.mdsal.binding.dom.codec.impl.BindingCodecContext;
 import org.opendaylight.mdsal.binding.runtime.api.BindingRuntimeContext;
 import org.opendaylight.mdsal.binding.runtime.spi.BindingRuntimeHelpers;
@@ -8,6 +9,7 @@ import org.opendaylight.yang.gen.v1.urn.example2.rev221025.ServiceEndpoints;
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.QName;
+import org.opendaylight.yangtools.yang.common.XMLNamespace;
 import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
 import org.opendaylight.yangtools.yang.data.api.schema.ContainerNode;
 import org.opendaylight.yangtools.yang.data.api.schema.MapEntryNode;
@@ -25,6 +27,7 @@ import org.opendaylight.yangtools.yang.data.tree.impl.di.InMemoryDataTreeFactory
 import org.opendaylight.yangtools.yang.data.tree.impl.node.TreeNode;
 import org.opendaylight.yangtools.yang.data.tree.impl.node.Version;
 import org.opendaylight.yangtools.yang.model.api.EffectiveModelContext;
+import org.opendaylight.yangtools.yang.model.api.stmt.SchemaNodeIdentifier;
 import org.opendaylight.yangtools.yang.model.repo.api.YangTextSchemaSource;
 import org.opendaylight.yangtools.yang.model.util.SchemaInferenceStack;
 import org.opendaylight.yangtools.yang.parser.api.YangParser;
@@ -166,10 +169,10 @@ public class Main {
 			Optional<NormalizedNode> optNode = snapshot.readNode(SINGLE_SE_BY_ID);
 			System.out.println("Find By ID:");
 			System.out.println(optNode.get().prettyTree());
-			// FIXME: toJSON() fails
-			System.out.println( toJSON(codecFactory, optNode.get()) );
+			SchemaInferenceStack.Inference inference =
+							SchemaInferenceStack.of(context,SchemaNodeIdentifier.Absolute.of(QNAME_SE,QNAME_SE_LIST)).toInference();
+			System.out.println( toJSON(codecFactory, inference, optNode.get()) );
 			System.out.println("--------------------------------------------");
-
 
 			//
 			// findNode() using TreeNode
@@ -182,7 +185,7 @@ public class Main {
 							.build();
 
 			Optional<? extends TreeNode> node1 = StoreTreeNodes.findNode(treeNode, SE_BY_ID);
-			System.out.println(toJSON(codecFactory, node1.get().getData()));
+			System.out.println(toJSON(codecFactory, inference, node1.get().getData()));
 			System.out.println("--------------------------------------------");
 
 
@@ -218,10 +221,10 @@ public class Main {
 			//
 			// now, convert back from "yang generated object" to json
 			//
-			System.out.println("--------------------------------------------");
-			InstanceIdentifier<ServiceEndpoints> iise = InstanceIdentifier.create(ServiceEndpoints.class);
-			Map.Entry<YangInstanceIdentifier, NormalizedNode> nodeEntry = bindingCodecContext.toNormalizedNode(iise,value);
-			System.out.println(toJSON(codecFactory, nodeEntry.getValue()));
+//			System.out.println("--------------------------------------------");
+//			InstanceIdentifier<ServiceEndpoints> iise = InstanceIdentifier.create(ServiceEndpoints.class);
+//			Map.Entry<YangInstanceIdentifier, NormalizedNode> nodeEntry = bindingCodecContext.toNormalizedNode(iise,value);
+//			System.out.println(toJSON(codecFactory, nodeEntry.getValue()));
 
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -231,16 +234,47 @@ public class Main {
 	}
 
 
-	private static String toJSON(JSONCodecFactory codecFactory, final NormalizedNode input) throws IOException {
+	private static String toJSON(JSONCodecFactory codecFactory, final SchemaInferenceStack.Inference inference, final NormalizedNode node) throws IOException {
 		final Writer writer = new StringWriter();
+		final XMLNamespace initialNamespace = node.getIdentifier().getNodeType().getNamespace();
 		final NormalizedNodeStreamWriter jsonStream = JSONNormalizedNodeStreamWriter.createNestedWriter(
-						codecFactory, JsonWriterFactory.createJsonWriter(writer, 2));
+						codecFactory, inference, initialNamespace, JsonWriterFactory.createJsonWriter(writer, 2));
 		try (NormalizedNodeWriter nodeWriter = NormalizedNodeWriter.forStreamWriter(jsonStream)) {
-			nodeWriter.write(input);
+			nodeWriter.write(node);
 		}
 
 		return writer.toString();
 	}
 
+
+	public static Writer serializeData(JSONCodecFactory codecFactory, final SchemaInferenceStack.Inference inference,
+					final NormalizedNode normalizedNode) {
+		final Writer writer = new StringWriter();
+		final XMLNamespace initialNamespace = normalizedNode.getIdentifier().getNodeType().getNamespace();
+		// nnStreamWriter closes underlying JsonWriter, we don't need too
+		final JsonWriter jsonWriter = new JsonWriter(writer);
+		// Exclusive nnWriter closes underlying NormalizedNodeStreamWriter, we don't need too
+		final boolean useNested = normalizedNode instanceof MapEntryNode;
+		final NormalizedNodeStreamWriter nnStreamWriter = useNested
+						? JSONNormalizedNodeStreamWriter.createNestedWriter(codecFactory, inference, initialNamespace, jsonWriter)
+						: JSONNormalizedNodeStreamWriter.createExclusiveWriter(codecFactory, inference, initialNamespace, jsonWriter);
+
+		try (NormalizedNodeWriter nnWriter = NormalizedNodeWriter.forStreamWriter(nnStreamWriter)) {
+			nnWriter.write(normalizedNode);
+			return writer;
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			if (useNested) {
+				try {
+					jsonWriter.close();
+				} catch (IOException e) {
+					System.out.println("Failed to close underlying JsonWriter");
+					e.printStackTrace();
+				}
+			}
+		}
+		return null;
+	}
 
 }
