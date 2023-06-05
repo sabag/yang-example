@@ -5,10 +5,12 @@ import com.google.gson.stream.JsonWriter;
 import org.opendaylight.mdsal.binding.dom.codec.impl.BindingCodecContext;
 import org.opendaylight.mdsal.binding.runtime.api.BindingRuntimeContext;
 import org.opendaylight.mdsal.binding.runtime.spi.BindingRuntimeHelpers;
-import org.opendaylight.yang.gen.v1.urn.example2.rev221025.ServiceEndpoints;
+import org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.rev221025.ServiceEndpoints;
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.QName;
+import org.opendaylight.yangtools.yang.common.QNameModule;
+import org.opendaylight.yangtools.yang.common.Revision;
 import org.opendaylight.yangtools.yang.common.XMLNamespace;
 import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
 import org.opendaylight.yangtools.yang.data.api.schema.ContainerNode;
@@ -40,8 +42,9 @@ import java.util.Optional;
 
 public class Main {
 
-	static final QName QNAME_SE = QName.create("urn:example2", "2022-10-25", "service-endpoints");
-	static final QName QNAME_SE_LIST = QName.create(QNAME_SE, "service-endpoint");
+	private static final QNameModule SE_MODULE = QNameModule.create(XMLNamespace.of("http://accedian.com/ns/yang/service/endpoint"), Revision.of("2022-10-25"));
+	static final QName QNAME_SE = QName.create(SE_MODULE, "service-endpoints");
+	static final QName QNAME_SE_LIST = QName.create(SE_MODULE, "service-endpoint");
 
 
 	public static void main(String[] args) {
@@ -71,7 +74,6 @@ public class Main {
 
 		try {
 			File[] fileArray = new File(yangDirectory).listFiles((dir,name) -> name.endsWith(".yang"));
-
 			YangParser parser = new DefaultYangParserFactory().createParser();
 			for(File file : fileArray) {
 				YangTextSchemaSource source = YangTextSchemaSource.forPath(file.toPath());
@@ -134,9 +136,7 @@ public class Main {
 
 			System.out.println("\n---------- wrapped with container ----------------------------------");
 			System.out.println(containerNode.prettyTree());
-			System.out.println(serializeData(codecFactory,
-							SchemaInferenceStack.of(context).toInference(),
-							containerNode));
+			System.out.println(toJSON(codecFactory, containerNode));
 
 
 			//
@@ -248,12 +248,12 @@ public class Main {
 
 	private static String toJSON(JSONCodecFactory codecFactory, final NormalizedNode node) throws IOException {
 		final Writer writer = new StringWriter();
-		final NormalizedNodeStreamWriter jsonStream = JSONNormalizedNodeStreamWriter.createNestedWriter(
-						codecFactory, JsonWriterFactory.createJsonWriter(writer, 2));
+		JsonWriter jsonWriter = JsonWriterFactory.createJsonWriter(writer,2);
+		final NormalizedNodeStreamWriter jsonStream = JSONNormalizedNodeStreamWriter.createExclusiveWriter(
+						codecFactory, jsonWriter);
 		try (NormalizedNodeWriter nodeWriter = NormalizedNodeWriter.forStreamWriter(jsonStream)) {
 			nodeWriter.write(node);
 		}
-
 		return writer.toString();
 	}
 
@@ -263,7 +263,7 @@ public class Main {
 		final Writer writer = new StringWriter();
 		final XMLNamespace initialNamespace = normalizedNode.getIdentifier().getNodeType().getNamespace();
 		// nnStreamWriter closes underlying JsonWriter, we don't need too
-		final JsonWriter jsonWriter = new JsonWriter(writer);
+		final JsonWriter jsonWriter = JsonWriterFactory.createJsonWriter(writer, 2);
 		// Exclusive nnWriter closes underlying NormalizedNodeStreamWriter, we don't need too
 		final boolean useNested = normalizedNode instanceof MapEntryNode;
 		final NormalizedNodeStreamWriter nnStreamWriter = useNested
