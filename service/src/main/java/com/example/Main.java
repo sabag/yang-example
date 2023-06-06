@@ -171,10 +171,20 @@ public class Main {
 			Optional<NormalizedNode> optNode = snapshot.readNode(SINGLE_SE_BY_ID);
 			System.out.println("\n----------- snapshot.readNode() ---------------------------------");
 			System.out.println("Find By ID:");
-			System.out.println(optNode.get().prettyTree());
-			SchemaInferenceStack.Inference inference =
-							SchemaInferenceStack.of(context,SchemaNodeIdentifier.Absolute.of(QNAME_SE,QNAME_SE_LIST)).toInference();
-			System.out.println( serializeData(codecFactory, inference, optNode.get()) );
+
+			// wrap it a map, so it will be converted to json with the proper root
+			NormalizedNode nn =
+					Builders.mapBuilder()
+						.withNodeIdentifier(YangInstanceIdentifier.NodeIdentifier.create(QNAME_SE_LIST))
+						.withChild((MapEntryNode)optNode.get())
+						.build()
+			;
+
+			System.out.println(nn.prettyTree());
+			SchemaInferenceStack.Inference inference = SchemaInferenceStack.of(context, SchemaNodeIdentifier.Absolute.of(QNAME_SE)).toInference();
+			XMLNamespace xmlName = XMLNamespace.of("http://accedian.com/ns/yang/service/endpoint@2022-10-25#service-endpoint");
+			System.out.println( serializeData(codecFactory, inference, xmlName, nn) );
+
 
 			//
 			// find node using StoreTreeNodes.findNode() with TreeNode
@@ -186,9 +196,14 @@ public class Main {
 							.nodeWithKey(QNAME_SE_LIST, QName.create(QNAME_SE, "endpoint-id"), "92efc5f8-siteB")
 							.build();
 
-			Optional<? extends TreeNode> node1 = StoreTreeNodes.findNode(treeNode, SE_BY_ID);
+			Optional<? extends TreeNode> treeNode1 = StoreTreeNodes.findNode(treeNode, SE_BY_ID);
 			System.out.println("\n--------- StoreTreeNodes.findNode() -----------------------------------");
-			System.out.println(serializeData(codecFactory, inference, node1.get().getData()));
+//			xmlName = XMLNamespace.of("http://accedian.com/ns/yang/service/endpoint@2022-10-25#service-endpoint[endpoint-id='92efc5f8-siteB']");
+			NormalizedNode node3 = treeNode1.get().getData();
+			xmlName = node3.getIdentifier().getNodeType().getNamespace();
+			//TODO - FIXME to be able to convert a specific map entry to json
+			inference = SchemaInferenceStack.of(context, SchemaNodeIdentifier.Absolute.of(QName.create(SE_MODULE, "service-endpoints"), QName.create(SE_MODULE, "service-endpoint") )).toInference();
+			System.out.println(serializeData(codecFactory, inference, xmlName, node3));
 
 
 			//
@@ -199,7 +214,8 @@ public class Main {
 							.build();
 			Optional<NormalizedNode> node2 = snapshot.readNode(yangIdAllList);
 			System.out.println("all list: \n" + node2.get().prettyTree());
-			System.out.println("json: \n" + serializeData(codecFactory, SchemaInferenceStack.of(context).toInference(), node2.get()));
+			SchemaInferenceStack.Inference inference1 = SchemaInferenceStack.of(context).toInference();
+			System.out.println("json: \n" + serializeData(codecFactory, inference1, SE_MODULE.getNamespace(), node2.get()));
 
 
 			//
@@ -258,17 +274,18 @@ public class Main {
 	}
 
 
-	public static Writer serializeData(JSONCodecFactory codecFactory, final SchemaInferenceStack.Inference inference,
+	public static Writer serializeData(JSONCodecFactory codecFactory, final SchemaInferenceStack.Inference inference, XMLNamespace initialNamespace,
 					final NormalizedNode normalizedNode) {
 		final Writer writer = new StringWriter();
-		final XMLNamespace initialNamespace = normalizedNode.getIdentifier().getNodeType().getNamespace();
+//		final XMLNamespace initialNamespace = normalizedNode.getIdentifier().getNodeType().getNamespace();
 		// nnStreamWriter closes underlying JsonWriter, we don't need too
 		final JsonWriter jsonWriter = JsonWriterFactory.createJsonWriter(writer, 2);
 		// Exclusive nnWriter closes underlying NormalizedNodeStreamWriter, we don't need too
-		final boolean useNested = normalizedNode instanceof MapEntryNode;
-		final NormalizedNodeStreamWriter nnStreamWriter = useNested
-						? JSONNormalizedNodeStreamWriter.createNestedWriter(codecFactory, inference, initialNamespace, jsonWriter)
-						: JSONNormalizedNodeStreamWriter.createExclusiveWriter(codecFactory, inference, initialNamespace, jsonWriter);
+		final boolean useNested = false;//normalizedNode instanceof MapEntryNode;
+//		final NormalizedNodeStreamWriter nnStreamWriter = useNested
+//						? JSONNormalizedNodeStreamWriter.createNestedWriter(codecFactory, inference, initialNamespace, jsonWriter)
+//						: JSONNormalizedNodeStreamWriter.createExclusiveWriter(codecFactory, inference, initialNamespace, jsonWriter);
+		final NormalizedNodeStreamWriter nnStreamWriter = JSONNormalizedNodeStreamWriter.createExclusiveWriter(codecFactory, inference, initialNamespace, jsonWriter);
 
 		try (NormalizedNodeWriter nnWriter = NormalizedNodeWriter.forStreamWriter(nnStreamWriter)) {
 			nnWriter.write(normalizedNode);
