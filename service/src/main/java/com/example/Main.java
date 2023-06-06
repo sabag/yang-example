@@ -46,6 +46,38 @@ public class Main {
 	static final QName QNAME_SE = QName.create(SE_MODULE, "service-endpoints");
 	static final QName QNAME_SE_LIST = QName.create(SE_MODULE, "service-endpoint");
 
+	/*
+    // currently this is not needed since i load all yang files in the directory
+    // left here for possible use in future
+    public static final Set<YangModuleInfo> ACCEDIAN_MODELS = Set.of(
+        org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.extensions.rev221025.$YangModuleInfoImpl.getInstance(),
+        org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.ne.rev221025.$YangModuleInfoImpl.getInstance(),
+        org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.rev221025.$YangModuleInfoImpl.getInstance(),
+        org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.type.rev221025.$YangModuleInfoImpl.getInstance(),
+        org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.l3vpn.rev221025.$YangModuleInfoImpl.getInstance(),
+        org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.rev221025.$YangModuleInfoImpl.getInstance(),
+        org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.type.rev221025.$YangModuleInfoImpl.getInstance(),
+        org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.rev221025.$YangModuleInfoImpl.getInstance(),
+        org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.twamp.light.rev221025.$YangModuleInfoImpl.getInstance(),
+        org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.type.rev221025.$YangModuleInfoImpl.getInstance(),
+        org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.types.rev221025.$YangModuleInfoImpl.getInstance(),
+        org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.$YangModuleInfoImpl.getInstance()
+    );
+    */
+
+		/*
+        // this is a different way to load yang files from their generated YangModuleInfo
+        CrossSourceStatementReactor.BuildAction buildAction = RFC7950Reactors.defaultReactorBuilder().build().newBuild();
+        for (YangModuleInfo yangModuleInfo : ACCEDIAN_MODELS) {
+            ByteSource byteSource = yangModuleInfo.getYangTextByteSource();
+            SourceIdentifier sourceIdentifier = YangTextSchemaSource.identifierFromFilename(yangModuleInfo.getName().getLocalName() + ".yang");
+            YangTextSchemaSource yangTextSchemaSource = YangTextSchemaSource.delegateForByteSource(sourceIdentifier,byteSource);
+            YangStatementStreamSource statementSource = YangStatementStreamSource.create(yangTextSchemaSource);
+            buildAction.addSource(statementSource);
+        }
+        modelContext = buildAction.buildEffective();
+        */
+
 
 	public static void main(String[] args) {
 
