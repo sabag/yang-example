@@ -1,117 +1,194 @@
 package com.example;
 
-import com.google.common.io.ByteSource;
-import com.google.gson.stream.JsonReader;
-import org.opendaylight.yangtools.yang.binding.YangModuleInfo;
-import org.opendaylight.yangtools.yang.data.api.YangInstanceIdentifier;
-import org.opendaylight.yangtools.yang.data.api.schema.ContainerNode;
-import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNode;
-import org.opendaylight.yangtools.yang.data.api.schema.builder.DataContainerNodeBuilder;
-import org.opendaylight.yangtools.yang.data.api.schema.stream.NormalizedNodeStreamWriter;
-import org.opendaylight.yangtools.yang.data.codec.gson.JSONCodecFactory;
-import org.opendaylight.yangtools.yang.data.codec.gson.JSONCodecFactorySupplier;
-import org.opendaylight.yangtools.yang.data.codec.gson.JsonParserStream;
-import org.opendaylight.yangtools.yang.data.impl.schema.Builders;
-import org.opendaylight.yangtools.yang.data.impl.schema.ImmutableNormalizedNodeStreamWriter;
-import org.opendaylight.yangtools.yang.model.api.EffectiveModelContext;
-import org.opendaylight.yangtools.yang.model.api.SchemaContext;
-import org.opendaylight.yangtools.yang.model.repo.api.SourceIdentifier;
-import org.opendaylight.yangtools.yang.model.repo.api.YangTextSchemaSource;
-import org.opendaylight.yangtools.yang.model.util.SchemaInferenceStack;
-import org.opendaylight.yangtools.yang.parser.api.YangSyntaxErrorException;
-import org.opendaylight.yangtools.yang.parser.rfc7950.reactor.RFC7950Reactors;
-import org.opendaylight.yangtools.yang.parser.rfc7950.repo.YangStatementStreamSource;
-import org.opendaylight.yangtools.yang.parser.stmt.reactor.CrossSourceStatementReactor;
+/*
+ * Copyright (c) 2018 PANTHEON.tech s.r.o. All Rights Reserved.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License v1.0 which accompanies this distribution,
+ * and is available at https://www.eclipse.org/legal/epl-v10.html
+ */
 
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.Reader;
-import java.util.ArrayList;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.google.common.base.Stopwatch;
+import io.lighty.applications.util.ModulesConfig;
+import io.lighty.core.common.exceptions.ModuleStartupException;
+import io.lighty.core.common.models.YangModuleUtils;
+import io.lighty.core.controller.api.LightyController;
+import io.lighty.core.controller.api.LightyModule;
+import io.lighty.core.controller.impl.LightyControllerBuilder;
+import io.lighty.core.controller.impl.config.ConfigurationException;
+import io.lighty.core.controller.impl.config.ControllerConfiguration;
+import io.lighty.core.controller.impl.util.ControllerConfigUtils;
+import io.lighty.modules.northbound.restconf.community.impl.CommunityRestConf;
+import io.lighty.modules.northbound.restconf.community.impl.CommunityRestConfBuilder;
+import io.lighty.modules.northbound.restconf.community.impl.config.RestConfConfiguration;
+import io.lighty.modules.northbound.restconf.community.impl.util.RestConfConfigUtils;
+import io.lighty.server.LightyServerBuilder;
+import io.lighty.swagger.SwaggerLighty;
+import org.opendaylight.yangtools.yang.binding.YangModuleInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.net.InetSocketAddress;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.logging.Logger;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class Main {
 
-
 	public static final Set<YangModuleInfo> ACCEDIAN_MODELS = Set.of(
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.extensions.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.ne.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.type.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.l3vpn.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.type.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.twamp.light.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.type.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.types.rev221025.$YangModuleInfoImpl.getInstance(),
-					org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.$YangModuleInfoImpl.getInstance()
+		org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.extensions.rev221025.$YangModuleInfoImpl.getInstance(),
+		org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.ne.rev221025.$YangModuleInfoImpl.getInstance(),
+		org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.rev221025.$YangModuleInfoImpl.getInstance(),
+		org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.type.rev221025.$YangModuleInfoImpl.getInstance(),
+		org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.l3vpn.rev221025.$YangModuleInfoImpl.getInstance(),
+		org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.rev221025.$YangModuleInfoImpl.getInstance(),
+		org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.type.rev221025.$YangModuleInfoImpl.getInstance(),
+		org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.rev221025.$YangModuleInfoImpl.getInstance(),
+		org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.twamp.light.rev221025.$YangModuleInfoImpl.getInstance(),
+		org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.session.type.rev221025.$YangModuleInfoImpl.getInstance(),
+		org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.types.rev221025.$YangModuleInfoImpl.getInstance(),
+		org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.$YangModuleInfoImpl.getInstance()
+
+		//        org.opendaylight.yang.gen.v1.urn.opendaylight.netconf.keystore.rev171017.$YangModuleInfoImpl.getInstance(),
+		//        org.opendaylight.yang.gen.v1.urn.opendaylight.netconf.node.topology.rev221225.$YangModuleInfoImpl.getInstance()
+		//        org.opendaylight.yang.gen.v1.urn.opendaylight.netconf.node.optional.rev221225.$YangModuleInfoImpl.getInstance(),
+		//        org.opendaylight.yang.gen.v1.urn.opendaylight.yang.extension.yang.ext.rev130709.$YangModuleInfoImpl.getInstance(),
+		//        org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.netconf.base._1._0.rev110601.$YangModuleInfoImpl.getInstance(),
+		//        org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.netconf.monitoring.rev101004.$YangModuleInfoImpl.getInstance(),
+		//        org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.library.rev190104.$YangModuleInfoImpl.getInstance()
+
 	);
 
 
-	private static List<YangStatementStreamSource> getYangStatementsFromYangModulesInfo(final Set<YangModuleInfo> yangModulesInfo)
-					throws YangSyntaxErrorException, IOException {
+	private static final Logger LOG = LoggerFactory.getLogger(Main.class);
 
-		final ArrayList<YangStatementStreamSource> sourceArrayList = new ArrayList<>();
-		for (YangModuleInfo yangModuleInfo : yangModulesInfo) {
-			ByteSource byteSource = yangModuleInfo.getYangTextByteSource();
-			SourceIdentifier sourceIdentifier = YangTextSchemaSource.identifierFromFilename(yangModuleInfo.getName().getLocalName() + ".yang");
-			YangTextSchemaSource yangTextSchemaSource = YangTextSchemaSource.delegateForByteSource(sourceIdentifier,byteSource);
-			YangStatementStreamSource statementSource = YangStatementStreamSource.create(yangTextSchemaSource);
-			sourceArrayList.add(statementSource);
-		}
-		return sourceArrayList;
+	private LightyController lightyController;
+	private SwaggerLighty swagger;
+	private CommunityRestConf restconf;
+	//    private LightyModule netconfSBPlugin;
+	private ModulesConfig modulesConfig = ModulesConfig.getDefaultModulesConfig();
+
+	public static void main(final String[] args) {
+		Main app = new Main();
+		app.start(args, true);
 	}
 
+	public void start() {
+		start(new String[] {}, false);
+	}
 
-	public static void try1(String payloadFile){
+	public void start(final String[] args, final boolean registerShutdownHook) {
 		try {
+			final ControllerConfiguration singleNodeConfiguration;
+			final RestConfConfiguration restconfConfiguration;
+/*
+                Path configPath = Paths.get("src/main/resources/lighty-config.json");
+                LOG.info("using configuration from file {} ...", configPath);
+                //1. get controller configuration
+                singleNodeConfiguration = ControllerConfigUtils.getConfiguration(Files.newInputStream(configPath));
+                //2. get RESTCONF NBP configuration
+                restconfConfiguration = RestConfConfigUtils.getRestConfConfiguration(Files.newInputStream(configPath));
+                //4. Load modules app configuration
+                modulesConfig = ModulesConfig.getModulesConfig(Files.newInputStream(configPath));
+*/
 
-			Set<YangModuleInfo> mavenModelPaths = new HashSet<>(ACCEDIAN_MODELS);
-			CrossSourceStatementReactor.BuildAction buildAction = RFC7950Reactors.defaultReactorBuilder().build().newBuild();
+			LOG.info("using default configuration ...");
+			Set<YangModuleInfo> modelPaths = new HashSet<>(ACCEDIAN_MODELS);
 
-			buildAction.addSources(getYangStatementsFromYangModulesInfo(mavenModelPaths));
-			EffectiveModelContext effectiveModelContext = buildAction.buildEffective();
+			ArrayNode arrayNode = YangModuleUtils.generateJSONModelSetConfiguration(modelPaths);
+			//0. print the list of schema context models
+			LOG.info("JSON model config snippet: {}", arrayNode.toString());
+			//1. get controller configuration
+			singleNodeConfiguration = ControllerConfigUtils.getDefaultSingleNodeConfiguration(modelPaths);
 
+//			singleNodeConfiguration.getActorSystemConfig().setAkkaConfigPath("singlenode/akka-default.conf");
+//			singleNodeConfiguration.getActorSystemConfig().setFactoryAkkaConfigPath("singlenode/factory-akka-default.conf");
+			singleNodeConfiguration.setModulesConfig("singlenode/modules.conf");
+			singleNodeConfiguration.setModuleShardsConfig("singlenode/module-shards.conf");
 
-			FileReader inputData = new FileReader(payloadFile);
-			NormalizedNode deserializedNode = deserialize(effectiveModelContext, inputData);
-			System.out.println("deserializedNode = " + deserializedNode);
+			//2. get RESTCONF NBP configuration
+			restconfConfiguration = RestConfConfigUtils.getDefaultRestConfConfiguration();
+			restconfConfiguration.setRestconfServletContextPath("/restconf");
+
+			if (registerShutdownHook) {
+				Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
+			}
+			startLighty(singleNodeConfiguration, restconfConfiguration);
 
 		} catch (Exception e) {
-			e.printStackTrace();
+			LOG.error("Main RESTCONF-NETCONF application exception: ", e);
+			shutdown();
 		}
 	}
 
+	private void startLighty(final ControllerConfiguration controllerConfiguration,
+		final RestConfConfiguration restconfConfiguration
+	)
+		throws ConfigurationException, ExecutionException, InterruptedException, TimeoutException,
+		ModuleStartupException {
 
-	public static NormalizedNode deserialize(EffectiveModelContext effectiveModelContext, Reader inputData) throws IOException {
-
-		JSONCodecFactory jsonCodecFactory = JSONCodecFactorySupplier.DRAFT_LHOTKA_NETMOD_YANG_JSON_02.createLazy(effectiveModelContext);
-		SchemaInferenceStack.Inference inference = SchemaInferenceStack.of(jsonCodecFactory.getEffectiveModelContext()).toInference();
-
-		final DataContainerNodeBuilder<YangInstanceIdentifier.NodeIdentifier, ContainerNode> resultBuilder = Builders.containerBuilder()
-						.withNodeIdentifier(YangInstanceIdentifier.NodeIdentifier.create(SchemaContext.NAME));
-		NormalizedNodeStreamWriter writer = ImmutableNormalizedNodeStreamWriter.from(resultBuilder);
-
-		try (JsonReader reader = new JsonReader(inputData);
-						JsonParserStream jsonParser = JsonParserStream.create(writer, jsonCodecFactory, inference)) {
-			jsonParser.parse(reader);
+		//1. initialize and start Lighty controller (MD-SAL, Controller, YangTools, Akka)
+		LightyControllerBuilder lightyControllerBuilder = new LightyControllerBuilder();
+		this.lightyController = lightyControllerBuilder.from(controllerConfiguration).build();
+		final boolean controllerStartOk = this.lightyController.start()
+			.get(modulesConfig.getModuleTimeoutSeconds(), TimeUnit.SECONDS);
+		if (!controllerStartOk) {
+			throw new ModuleStartupException("Lighty.io Controller startup failed!");
 		}
 
-		return resultBuilder.build();
+		//2. build RestConf server
+		LightyServerBuilder jettyServerBuilder = new LightyServerBuilder(new InetSocketAddress(
+			restconfConfiguration.getInetAddress(), restconfConfiguration.getHttpPort()));
+		this.restconf = CommunityRestConfBuilder
+			.from(RestConfConfigUtils.getRestConfConfiguration(restconfConfiguration,
+				this.lightyController.getServices()))
+			.withLightyServer(jettyServerBuilder)
+			.build();
+
+		//3. start swagger and RestConf server
+		this.swagger = new SwaggerLighty(restconfConfiguration, jettyServerBuilder, this.lightyController.getServices());
+		final boolean swaggerStartOk = this.swagger.start()
+			.get(modulesConfig.getModuleTimeoutSeconds(), TimeUnit.SECONDS);
+		if (!swaggerStartOk) {
+			throw new ModuleStartupException("Lighty.io Swagger startup failed!");
+		}
+		final boolean restconfStartOk = this.restconf.start()
+			.get(modulesConfig.getModuleTimeoutSeconds(), TimeUnit.SECONDS);
+		if (!restconfStartOk) {
+			throw new ModuleStartupException("Community Restconf startup failed!");
+		}
+		this.restconf.startServer();
+
+		//4. start NetConf SBP
+		//        netconfSBPConfiguration = NetconfConfigUtils.injectServicesToTopologyConfig(
+		//                netconfSBPConfiguration, this.lightyController.getServices());
+		//        this.netconfSBPlugin = NetconfTopologyPluginBuilder
+		//                .from(netconfSBPConfiguration, this.lightyController.getServices())
+		//                .build();
+		//        final boolean netconfSBPStartOk = this.netconfSBPlugin.start()
+		//                .get(modulesConfig.getModuleTimeoutSeconds(), TimeUnit.SECONDS);
+		//        if (!netconfSBPStartOk) {
+		//            throw new ModuleStartupException("NetconfSB plugin startup failed!");
+		//        }
 	}
 
+	private void closeLightyModule(final LightyModule module) {
+		if (module != null) {
+			module.shutdown(modulesConfig.getModuleTimeoutSeconds(), TimeUnit.SECONDS);
+		}
+	}
 
-
-
-	public static void main(String[] args) {
-		System.out.println("Correct Payload:");
-		try1("./src/main/resources/correct-payload.json");
-
-		System.out.println("Incorrect Payload:");
-		try1("./src/main/resources/incorrect-payload.json");
+	public void shutdown() {
+		LOG.info("Lighty.io and RESTCONF-NETCONF shutting down ...");
+		final Stopwatch stopwatch = Stopwatch.createStarted();
+		//        closeLightyModule(this.netconfSBPlugin);
+		closeLightyModule(this.restconf);
+		closeLightyModule(this.swagger);
+		closeLightyModule(this.lightyController);
+		LOG.info("Lighty.io and RESTCONF-NETCONF stopped in {}", stopwatch.stop());
 	}
 
 }
