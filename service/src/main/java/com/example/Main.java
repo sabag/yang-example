@@ -274,10 +274,12 @@ public class Main {
 			//
 			// now, convert back from "yang generated object" to json
 			//
-//			System.out.println("\n--------------------------------------------");
-//			InstanceIdentifier<ServiceEndpoints> iise = InstanceIdentifier.create(ServiceEndpoints.class);
-//			Map.Entry<YangInstanceIdentifier, NormalizedNode> nodeEntry = bindingCodecContext.toNormalizedNode(iise,value);
-//			System.out.println(toJSON(codecFactory, nodeEntry.getValue()));
+			/*
+			System.out.println("\n--------------------------------------------");
+			InstanceIdentifier<ServiceEndpoints> iise = InstanceIdentifier.create(ServiceEndpoints.class);
+			Map.Entry<YangInstanceIdentifier, NormalizedNode> nodeEntry = bindingCodecContext.toNormalizedNode(iise,value);
+			System.out.println(toJSON(codecFactory, nodeEntry.getValue()));
+			*/
 
 		} catch (Exception e) {
 			e.printStackTrace();
