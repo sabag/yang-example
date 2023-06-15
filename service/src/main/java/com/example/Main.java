@@ -246,20 +246,23 @@ public class Main {
 			//
 			// build a binding context
 			//
-
-//			final ModuleInfoSnapshotBuilder moduleInfoSnapshotBuilder = new ModuleInfoSnapshotBuilder(new DefaultYangParserFactory());
-//			moduleInfoSnapshotBuilder.add(org.opendaylight.yang.gen.v1.urn.example2.norev.$YangModuleInfoImpl.getInstance());
-//			final BindingRuntimeGenerator bindingRuntimeGenerator = new DefaultBindingRuntimeGenerator();
-//			final BindingRuntimeTypes bindingRuntimeTypes = bindingRuntimeGenerator.generateTypeMapping(context);
-//			DefaultBindingRuntimeContext bindingRuntimeContext = new DefaultBindingRuntimeContext(bindingRuntimeTypes, moduleInfoSnapshotBuilder.build());
+			/* one way of creating a binding context
+			final ModuleInfoSnapshotBuilder moduleInfoSnapshotBuilder = new ModuleInfoSnapshotBuilder(new DefaultYangParserFactory());
+			moduleInfoSnapshotBuilder.add(org.opendaylight.yang.gen.v1.urn.example2.norev.$YangModuleInfoImpl.getInstance());
+			final BindingRuntimeGenerator bindingRuntimeGenerator = new DefaultBindingRuntimeGenerator();
+			final BindingRuntimeTypes bindingRuntimeTypes = bindingRuntimeGenerator.generateTypeMapping(context);
+			DefaultBindingRuntimeContext bindingRuntimeContext = new DefaultBindingRuntimeContext(bindingRuntimeTypes, moduleInfoSnapshotBuilder.build());
+			*/
 
 			// faster and simpler way to construct BindingCodecContext
 			BindingRuntimeContext bindingRuntimeContext = BindingRuntimeHelpers.createRuntimeContext();
 			BindingCodecContext bindingCodecContext = new BindingCodecContext(bindingRuntimeContext);
 
+			/*
 			// for now, this is not needed
-//			ConstantAdapterContext codec = new ConstantAdapterContext(bindingCodecContext);
-//			BindingNormalizedNodeSerializer serializer = codec.currentSerializer();
+			ConstantAdapterContext codec = new ConstantAdapterContext(bindingCodecContext);
+			BindingNormalizedNodeSerializer serializer = codec.currentSerializer();
+			*/
 
 
 			//
