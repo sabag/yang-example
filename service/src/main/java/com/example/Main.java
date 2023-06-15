@@ -1,5 +1,6 @@
 package com.example;
 
+import com.google.common.io.ByteSource;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import org.opendaylight.mdsal.binding.dom.codec.impl.BindingCodecContext;
@@ -8,6 +9,7 @@ import org.opendaylight.mdsal.binding.runtime.spi.BindingRuntimeHelpers;
 import org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.service.endpoint.rev221025.ServiceEndpoints;
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
+import org.opendaylight.yangtools.yang.binding.YangModuleInfo;
 import org.opendaylight.yangtools.yang.common.QName;
 import org.opendaylight.yangtools.yang.common.QNameModule;
 import org.opendaylight.yangtools.yang.common.Revision;
@@ -18,7 +20,6 @@ import org.opendaylight.yangtools.yang.data.api.schema.MapEntryNode;
 import org.opendaylight.yangtools.yang.data.api.schema.NormalizedNode;
 import org.opendaylight.yangtools.yang.data.api.schema.stream.NormalizedNodeStreamWriter;
 import org.opendaylight.yangtools.yang.data.api.schema.stream.NormalizedNodeWriter;
-import org.opendaylight.yangtools.yang.data.api.schema.tree.StoreTreeNodes;
 import org.opendaylight.yangtools.yang.data.codec.gson.*;
 import org.opendaylight.yangtools.yang.data.impl.schema.Builders;
 import org.opendaylight.yangtools.yang.data.impl.schema.ImmutableNormalizedNodeStreamWriter;
@@ -26,19 +27,23 @@ import org.opendaylight.yangtools.yang.data.impl.schema.NormalizedNodeResult;
 import org.opendaylight.yangtools.yang.data.impl.schema.builder.impl.ImmutableContainerNodeBuilder;
 import org.opendaylight.yangtools.yang.data.tree.api.*;
 import org.opendaylight.yangtools.yang.data.tree.impl.di.InMemoryDataTreeFactory;
-import org.opendaylight.yangtools.yang.data.tree.impl.node.TreeNode;
-import org.opendaylight.yangtools.yang.data.tree.impl.node.Version;
 import org.opendaylight.yangtools.yang.model.api.EffectiveModelContext;
 import org.opendaylight.yangtools.yang.model.api.stmt.SchemaNodeIdentifier;
+import org.opendaylight.yangtools.yang.model.repo.api.SourceIdentifier;
 import org.opendaylight.yangtools.yang.model.repo.api.YangTextSchemaSource;
 import org.opendaylight.yangtools.yang.model.util.SchemaInferenceStack;
 import org.opendaylight.yangtools.yang.parser.api.YangParser;
 import org.opendaylight.yangtools.yang.parser.impl.DefaultYangParserFactory;
+import org.opendaylight.yangtools.yang.parser.rfc7950.reactor.RFC7950Reactors;
+import org.opendaylight.yangtools.yang.parser.rfc7950.repo.YangStatementStreamSource;
+import org.opendaylight.yangtools.yang.parser.stmt.reactor.CrossSourceStatementReactor;
+import org.opendaylight.yangtools.yang.parser.stmt.reactor.EffectiveSchemaContext;
 
 import java.io.*;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 public class Main {
 
@@ -46,7 +51,6 @@ public class Main {
 	static final QName QNAME_SE = QName.create(SE_MODULE, "service-endpoints");
 	static final QName QNAME_SE_LIST = QName.create(SE_MODULE, "service-endpoint");
 
-	/*
     // currently this is not needed since i load all yang files in the directory
     // left here for possible use in future
     public static final Set<YangModuleInfo> ACCEDIAN_MODELS = Set.of(
@@ -63,20 +67,7 @@ public class Main {
         org.opendaylight.yang.gen.v1.http.accedian.com.ns.yang.types.rev221025.$YangModuleInfoImpl.getInstance(),
         org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev100924.$YangModuleInfoImpl.getInstance()
     );
-    */
 
-		/*
-        // this is a different way to load yang files from their generated YangModuleInfo
-        CrossSourceStatementReactor.BuildAction buildAction = RFC7950Reactors.defaultReactorBuilder().build().newBuild();
-        for (YangModuleInfo yangModuleInfo : ACCEDIAN_MODELS) {
-            ByteSource byteSource = yangModuleInfo.getYangTextByteSource();
-            SourceIdentifier sourceIdentifier = YangTextSchemaSource.identifierFromFilename(yangModuleInfo.getName().getLocalName() + ".yang");
-            YangTextSchemaSource yangTextSchemaSource = YangTextSchemaSource.delegateForByteSource(sourceIdentifier,byteSource);
-            YangStatementStreamSource statementSource = YangStatementStreamSource.create(yangTextSchemaSource);
-            buildAction.addSource(statementSource);
-        }
-        modelContext = buildAction.buildEffective();
-        */
 
 
 	public static void main(String[] args) {
@@ -102,21 +93,21 @@ public class Main {
 		//
 		// build an EffectiveModelContext from yang files
 		//
-		String yangDirectory = "/Users/dsabag/dev/yang-example/yang-model/src/main/yang/";
-
 		try {
-			File[] fileArray = new File(yangDirectory).listFiles((dir,name) -> name.endsWith(".yang"));
-			YangParser parser = new DefaultYangParserFactory().createParser();
-			for(File file : fileArray) {
-				YangTextSchemaSource source = YangTextSchemaSource.forPath(file.toPath());
-				parser.addSource(source);
-			}
-			EffectiveModelContext context = parser.buildEffectiveModel();
+
+			// one way to load yang model
+			// NOTE !!!!!
+			// this method creates an error when use the BindingContext to convert a node to its generated object
+			//String yangDirectory = "/Users/dsabag/dev/yang-example/yang-model/src/main/yang/";
+			//EffectiveModelContext context = loadYangFromFiles(yangDirectory);
+
+			// or another way
+			EffectiveModelContext context = loadYangFromGeneratedSource();
 
 
 			// build codec factory from context
 			JSONCodecFactory codecFactory = JSONCodecFactorySupplier.DRAFT_LHOTKA_NETMOD_YANG_JSON_02.getShared(context);
-			//							JSONCodecFactorySupplier.RFC7951.getShared(context),
+
 
 			//
 			// build a JsonParser object to be used for the payload
@@ -218,6 +209,7 @@ public class Main {
 			System.out.println( serializeData(codecFactory, inference, xmlName, nn) );
 
 
+			/* for now, not needed
 			//
 			// find node using StoreTreeNodes.findNode() with TreeNode
 			//
@@ -236,6 +228,7 @@ public class Main {
 			//TODO - FIXME to be able to convert a specific map entry to json
 			inference = SchemaInferenceStack.of(context, SchemaNodeIdentifier.Absolute.of(QName.create(SE_MODULE, "service-endpoints"), QName.create(SE_MODULE, "service-endpoint") )).toInference();
 			System.out.println(serializeData(codecFactory, inference, xmlName, node3));
+			*/
 
 
 			//
@@ -337,4 +330,28 @@ public class Main {
 		return null;
 	}
 
+
+	private static EffectiveModelContext loadYangFromFiles(String yangDirectory) throws Exception {
+		File[] fileArray = new File(yangDirectory).listFiles((dir,name) -> name.endsWith(".yang"));
+		YangParser parser = new DefaultYangParserFactory().createParser();
+		for(File file : fileArray) {
+			YangTextSchemaSource source = YangTextSchemaSource.forPath(file.toPath());
+			parser.addSource(source);
+		}
+		return parser.buildEffectiveModel();
+	}
+
+
+	private static EffectiveSchemaContext loadYangFromGeneratedSource() throws Exception {
+		// this is a different way to load yang files from their generated YangModuleInfo
+        CrossSourceStatementReactor.BuildAction buildAction = RFC7950Reactors.defaultReactorBuilder().build().newBuild();
+        for (YangModuleInfo yangModuleInfo : ACCEDIAN_MODELS) {
+            ByteSource byteSource = yangModuleInfo.getYangTextByteSource();
+            SourceIdentifier sourceIdentifier = YangTextSchemaSource.identifierFromFilename(yangModuleInfo.getName().getLocalName() + ".yang");
+            YangTextSchemaSource yangTextSchemaSource = YangTextSchemaSource.delegateForByteSource(sourceIdentifier,byteSource);
+            YangStatementStreamSource statementSource = YangStatementStreamSource.create(yangTextSchemaSource);
+            buildAction.addSource(statementSource);
+        }
+		return buildAction.buildEffective();
+	}
 }
